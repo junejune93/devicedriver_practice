@@ -1,1 +1,0 @@
-cmd_/home/udooer/dd/p106_led/led.ko := arm-linux-gnueabihf-ld -EL -r  -T /home/udooer/kernel/linux_kernel-3.14-1.0.x-udoo/scripts/module-common.lds --build-id  -o /home/udooer/dd/p106_led/led.ko /home/udooer/dd/p106_led/led.o /home/udooer/dd/p106_led/led.mod.o
