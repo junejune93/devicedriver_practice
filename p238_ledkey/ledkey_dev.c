@@ -10,7 +10,7 @@
 #include <linux/gpio.h>
 #include <asm/uaccess.h>
 
-#define   LED_DEV_NAME            "leddev"
+#define   LED_DEV_NAME            "ledkeydev"
 #define   LED_DEV_MAJOR            240      
 #define DEBUG 1
 #define IMX_GPIO_NR(bank, nr)       (((bank) - 1) * 32 + (nr))
@@ -113,27 +113,27 @@ void key_read(unsigned char * key_data)
 }
 
 
-int leddev_open (struct inode *inode, struct file *filp)
+int ledkeydev_open (struct inode *inode, struct file *filp)
 {
     int num0 = MAJOR(inode->i_rdev); 
     int num1 = MINOR(inode->i_rdev); 
-    printk( "leddev open -> major : %d\n", num0 );
-    printk( "leddev open -> minor : %d\n", num1 );
+    printk( "ledkeydev open -> major : %d\n", num0 );
+    printk( "ledkeydev open -> minor : %d\n", num1 );
 
     return 0;
 }
 
-loff_t leddev_llseek (struct file *filp, loff_t off, int whence )
+loff_t ledkeydev_llseek (struct file *filp, loff_t off, int whence )
 {
-    printk( "leddev llseek -> off : %08X, whenec : %08X\n", (unsigned int)off, whence );
+    printk( "ledkeydev llseek -> off : %08X, whenec : %08X\n", (unsigned int)off, whence );
     return 0x23;
 }
 
-ssize_t leddev_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
+ssize_t ledkeydev_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
 	char kbuf;
 	int ret;
-    printk( "leddev read -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
+    printk( "ledkeydev read -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
 //	led_read(&kbuf);
 	key_read(&kbuf);     
 //	put_user(kbuf,buf);
@@ -143,11 +143,11 @@ ssize_t leddev_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
     return count;
 }
 
-ssize_t leddev_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos)
+ssize_t ledkeydev_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos)
 {
 	char kbuf;
 	int ret;
-    printk( "leddev write -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
+    printk( "ledkeydev write -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
 //	get_user(kbuf,buf);
 	ret=copy_from_user(&kbuf,buf,count);
 	if(ret < 0)
@@ -156,38 +156,38 @@ ssize_t leddev_write (struct file *filp, const char *buf, size_t count, loff_t *
     return count;
 }
 
-//int leddev_ioctl (struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
-static long leddev_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
+//int ledkeydev_ioctl (struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
+static long ledkeydev_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
 
-    printk( "leddev ioctl -> cmd : %08X, arg : %08X \n", cmd, (unsigned int)arg );
+    printk( "ledkeydev ioctl -> cmd : %08X, arg : %08X \n", cmd, (unsigned int)arg );
     return 0x53;
 }
 
-int leddev_release (struct inode *inode, struct file *filp)
+int ledkeydev_release (struct inode *inode, struct file *filp)
 {
-    printk( "leddev release \n" );
+    printk( "ledkeydev release \n" );
     return 0;
 }
 
-struct file_operations leddev_fops =
+struct file_operations ledkeydev_fops =
 {
     .owner    = THIS_MODULE,
-    .open     = leddev_open,     
-    .read     = leddev_read,     
-    .write    = leddev_write,    
-	.unlocked_ioctl = leddev_ioctl,
-    .llseek   = leddev_llseek,   
-    .release  = leddev_release,  
+    .open     = ledkeydev_open,     
+    .read     = ledkeydev_read,     
+    .write    = ledkeydev_write,    
+	.unlocked_ioctl = ledkeydev_ioctl,
+    .llseek   = ledkeydev_llseek,   
+    .release  = ledkeydev_release,  
 };
 
-int leddev_init(void)
+int ledkeydev_init(void)
 {
     int result;
 
-    printk( "leddev leddev_init \n" );    
+    printk( "ledkeydev ledkeydev_init \n" );    
 
-    result = register_chrdev( LED_DEV_MAJOR, LED_DEV_NAME, &leddev_fops);
+    result = register_chrdev( LED_DEV_MAJOR, LED_DEV_NAME, &ledkeydev_fops);
     if (result < 0) return result;
 
 	result = ledkey_request();
@@ -198,15 +198,15 @@ int leddev_init(void)
     return 0;
 }
 
-void leddev_exit(void)
+void ledkeydev_exit(void)
 {
-    printk( "leddev leddev_exit \n" );    
+    printk( "ledkeydev ledkeydev_exit \n" );    
     unregister_chrdev( LED_DEV_MAJOR, LED_DEV_NAME );
 	ledkey_free();
 }
 
-module_init(leddev_init);
-module_exit(leddev_exit);
+module_init(ledkeydev_init);
+module_exit(ledkeydev_exit);
 
 MODULE_AUTHOR("HJ");
 MODULE_DESCRIPTION("test module");

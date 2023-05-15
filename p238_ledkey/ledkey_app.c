@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#define DEVICE_FILENAME  "/dev/led_dev"
+#define DEVICE_FILENAME  "/dev/ledkey_dev"
 
 void print_led(unsigned char);
 void print_key(unsigned char);
