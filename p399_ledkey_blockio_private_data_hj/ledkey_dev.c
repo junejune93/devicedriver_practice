@@ -9,12 +9,12 @@
 #include <linux/moduleparam.h>
 #include <linux/gpio.h>
 #include <asm/uaccess.h>
+
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
-#include <linux/string.h>
 
 #define   LED_DEV_NAME            "ledkeydev"
 #define   LED_DEV_MAJOR            240      
@@ -22,17 +22,18 @@
 #define IMX_GPIO_NR(bank, nr)       (((bank) - 1) * 32 + (nr))
 
 DECLARE_WAIT_QUEUE_HEAD(WaitQueue_Read);
-int irq_init(struct file *filp);
 
+int irq_init(struct file *filp);
 static unsigned long ledvalue = 15;
 static char * twostring = NULL;
-//static int sw_irq[8] = {0};
-//static char sw_no = 0;
+
 typedef struct
 {
 	int sw_irq[8];
 	char sw_no;
-}  __attribute__ ((packed)) ISR_INFO;
+}__attribute__ ((packed)) ISR_INFO;
+//static int sw_irq[8] = {0};
+//static char sw_no = 0;
 
 module_param(ledvalue, ulong ,0);
 module_param(twostring,charp,0);
@@ -57,7 +58,7 @@ static int ledkey_request(struct file *filp)
 {
 	int ret = 0;
 	int i;
-	ISR_INFO * pIsrInfo = (ISR_INFO *)(filp->private_data);
+	ISR_INFO *pIsrInfo = filp -> private_data;
 
 	for (i = 0; i < ARRAY_SIZE(led); i++) {
 		ret = gpio_request(led[i], "gpio led");
@@ -65,37 +66,35 @@ static int ledkey_request(struct file *filp)
 			printk("#### FAILED Request gpio %d. error : %d \n", led[i], ret);
 			break;
 		} 
-  		gpio_direction_output(led[i], 0);
+		gpio_direction_output(led[i], 0);
 	}
 	for (i = 0; i < ARRAY_SIZE(key); i++) {
-//		ret = gpio_request(key[i], "gpio key");
-		pIsrInfo->sw_irq[i] = gpio_to_irq(key[i]);
+		pIsrInfo -> sw_irq[i] = gpio_to_irq(key[i]);
 		if(ret<0){
 			printk("#### FAILED Request gpio %d. error : %d \n", key[i], ret);
 			break;
 		} 
-//  	gpio_direction_input(key[i]); 
 	}
 	return ret;
 }
 static void ledkey_free(struct file *filp)
 {
 	int i;
-	ISR_INFO * pIsrInfo = (ISR_INFO *)(filp->private_data);
+	ISR_INFO *pIsrInfo = filp -> private_data;
 	for (i = 0; i < ARRAY_SIZE(led); i++){
 		gpio_free(led[i]);
 	}
-  	for (i = 0; i < ARRAY_SIZE(key); i++){
-//		gpio_free(key[i]);
-		free_irq(pIsrInfo->sw_irq[i],filp->private_data);
+	for (i = 0; i < ARRAY_SIZE(key); i++){
+		free_irq(pIsrInfo -> sw_irq[i], filp -> private_data);
 	}
+	return;
 }
 
 void led_write(unsigned char data)
 {
 	int i;
 	for(i = 0; i < ARRAY_SIZE(led); i++){
-    	gpio_set_value(led[i], (data >> i ) & 0x01);
+		gpio_set_value(led[i], (data >> i ) & 0x01);
 	}
 #if DEBUG
 	printk("#### %s, data = %d\n", __FUNCTION__, data);
@@ -122,52 +121,43 @@ void key_read(unsigned char * key_data)
 	return;
 }
 
-
 int ledkeydev_open (struct inode *inode, struct file *filp)
 {
-	ISR_INFO * pIsrInfo;
-    int num0 = MAJOR(inode->i_rdev); 
-    int num1 = MINOR(inode->i_rdev); 
-//	int i;
+	int i;
+	ISR_INFO *pIsrInfo = filp -> private_data; // 구조체 포인터
+	int num0 = MAJOR(inode->i_rdev); 
+	int num1 = MINOR(inode->i_rdev); 
+	
+	pIsrInfo = (ISR_INFO *)kmalloc(sizeof(ISR_INFO), GFP_KERNEL);
+	printk( "ledkeydev open -> major : %d\n", num0 );
+	printk( "ledkeydev open -> minor : %d\n", num1 );
 
-	pIsrInfo = (ISR_INFO *)kmalloc(sizeof(ISR_INFO),GFP_KERNEL);
-    printk( "ledkeydev open -> major : %d\n", num0 );
-    printk( "ledkeydev open -> minor : %d\n", num1 );
-//	*pSw_no = 0;
-/*	pIsrInfo->sw_no = 0;
-	for(i=0;i<8;i++)
-		pIsrInfo->sw_irq[i] = 0;
-*/
-	memset(pIsrInfo, 0x00, sizeof(ISR_INFO));
-	filp->private_data = (void *)pIsrInfo;
+	pIsrInfo -> sw_no = 0;
+	for (i = 0; i < ARRAY_SIZE(key); i++){
+		pIsrInfo -> sw_irq[i] = 0;
+	}
+	filp -> private_data = pIsrInfo;
 	irq_init(filp);
 
-    return 0;
+	return 0;
 }
 
 ssize_t ledkeydev_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
-//	char kbuf;
+	ISR_INFO *pIsrInfo = filp -> private_data;
 	int ret;
-	ISR_INFO * pIsrInfo = (ISR_INFO *)(filp->private_data);
-	char * pSw_no = &pIsrInfo->sw_no;
 #if DEBUG
-    printk( "ledkeydev read -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
+	printk( "ledkeydev read -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
 #endif
-//	key_read(&kbuf);     
-//	ret=copy_to_user(buf,&sw_no,count);
-
-	if(!(filp->f_flags & O_NONBLOCK))  //BLOCK Mode
-	{
-		if(*pSw_no == 0)
+	if(!(filp -> f_flags & O_NONBLOCK)){
+		if((pIsrInfo -> sw_no) == 0)
 			interruptible_sleep_on(&WaitQueue_Read);
 	}
-
-  	ret=copy_to_user(buf,pSw_no,count);
-	*pSw_no = 0;
+	ret=copy_to_user(buf,&(pIsrInfo -> sw_no),count);
+	pIsrInfo -> sw_no = 0;
 	if(ret < 0)
 		return -ENOMEM;
-    return count;
+	return count;
 }
 
 ssize_t ledkeydev_write (struct file *filp, const char *buf, size_t count, loff_t *f_pos)
@@ -175,78 +165,73 @@ ssize_t ledkeydev_write (struct file *filp, const char *buf, size_t count, loff_
 	char kbuf;
 	int ret;
 #if DEBUG
-    printk( "ledkeydev write -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
+	printk( "ledkeydev write -> buf : %08X, count : %08X \n", (unsigned int)buf, count );
 #endif
 	ret=copy_from_user(&kbuf,buf,count);
 	if(ret < 0)
 		return -ENOMEM;
 	led_write(kbuf);
-    return count;
+	return count;
 }
 
 static long ledkeydev_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
 
 #if DEBUG
-    printk( "ledkeydev ioctl -> cmd : %08X, arg : %08X \n", cmd, (unsigned int)arg );
+	printk( "ledkeydev ioctl -> cmd : %08X, arg : %08X \n", cmd, (unsigned int)arg );
 #endif
-    return 0x53;
+	return 0x53;
 }
 
 int ledkeydev_release (struct inode *inode, struct file *filp)
 {
-    printk( "ledkeydev release \n" );
+	printk( "ledkeydev release \n" );
 	ledkey_free(filp);
-	if(filp->private_data)
-		kfree(filp->private_data);
-    return 0;
+	if (filp -> private_data)
+		kfree(filp -> private_data);
+	return 0;
 }
 
 struct file_operations ledkeydev_fops =
 {
-    .owner    = THIS_MODULE,
-    .open     = ledkeydev_open,     
-    .read     = ledkeydev_read,     
-    .write    = ledkeydev_write,    
+	.owner    = THIS_MODULE,
+	.open     = ledkeydev_open,     
+	.read     = ledkeydev_read,     
+	.write    = ledkeydev_write,    
 	.unlocked_ioctl = ledkeydev_ioctl,
-    .release  = ledkeydev_release,  
+	.release  = ledkeydev_release,  
 };
 
-irqreturn_t sw_isr(int irq, void * private_data)
-{
+irqreturn_t sw_isr(int irq, void *private_data){
 	int i;
-	ISR_INFO * pIsrInfo = (ISR_INFO *)private_data;
-	char * pSw_no = &pIsrInfo->sw_no;
-	for(i=0;i<ARRAY_SIZE(key);i++)
-	{
-		if(irq == pIsrInfo->sw_irq[i])
-		{
-			*pSw_no = i+1;
-	int i;
+	ISR_INFO *pIsrInfo = (ISR_INFO *)private_data;
+//	char *pSw_no = (char *)private_data;
+	for (i = 0; i < ARRAY_SIZE(key); i++){
+		if (irq == (pIsrInfo -> sw_irq[i])){
+		pIsrInfo -> sw_no = i+1;
 			break;
 		}
 	}
-	printk("IRQ : %d, sw_no : %d\n",irq,*pSw_no);
+	printk("IRQ : %d, sw_no : %d", irq, pIsrInfo -> sw_no);
 	wake_up_interruptible(&WaitQueue_Read);
+
 	return IRQ_HANDLED;
 }
 
-int irq_init(struct file *filp)
-{
+int irq_init(struct file *filp){
 	int i;
-	ISR_INFO * pIsrInfo = (ISR_INFO *)filp->private_data;
-	char * sw_name[8] = {"key1","key2","key3","key4","key5","key6","key7","key8"};
-	int result = ledkey_request(filp);
+	ISR_INFO *pIsrInfo = filp -> private_data;
+	char *sw_name[8] = {"key1", "key2", "key3", "key4", "key5", "key6", "key7", "key8"};
+	int result = 0;
+	result = ledkey_request(filp);
 	if(result < 0)
 	{
-  		return result;     /* Device or resource busy */
+		return result;     /* Device or resource busy */
 	}
-	for(i=0;i<ARRAY_SIZE(key);i++)
-	{
-		result = request_irq(pIsrInfo->sw_irq[i],sw_isr,IRQF_TRIGGER_RISING,sw_name[i],filp->private_data);
-		if(result)
-		{
-			printk("#### FAILED Request irq %d. error : %d \n", pIsrInfo->sw_irq[i], result);
+	for (i = 0; i < ARRAY_SIZE(key); i++){
+		result = request_irq(pIsrInfo -> sw_irq[i], sw_isr, IRQF_TRIGGER_RISING, sw_name[i], filp->private_data);
+		if (result < 0){
+			printk("#### FAILED Request irq %d. error : %d \n", pIsrInfo -> sw_irq[i], result);
 			break;
 		}
 	}
@@ -255,25 +240,24 @@ int irq_init(struct file *filp)
 
 int ledkeydev_init(void)
 {
-    int result=0;
+	int result = 0;
+	printk( "ledkeydev ledkeydev_init \n" );    
 
-    printk( "ledkeydev ledkeydev_init \n" );    
+	result = register_chrdev( LED_DEV_MAJOR, LED_DEV_NAME, &ledkeydev_fops);
+	if (result < 0) return result;
 
-    result = register_chrdev( LED_DEV_MAJOR, LED_DEV_NAME, &ledkeydev_fops);
-    if (result < 0) return result;
-
-    return result;
+	return result;
 }
 
 void ledkeydev_exit(void)
 {
-    printk( "ledkeydev ledkeydev_exit \n" );    
-    unregister_chrdev( LED_DEV_MAJOR, LED_DEV_NAME );
+	printk( "ledkeydev ledkeydev_exit \n" );    
+	unregister_chrdev( LED_DEV_MAJOR, LED_DEV_NAME );
 }
 
 module_init(ledkeydev_init);
 module_exit(ledkeydev_exit);
 
-MODULE_AUTHOR("KSH");
+MODULE_AUTHOR("HJ");
 MODULE_DESCRIPTION("test module");
 MODULE_LICENSE("Dual BSD/GPL");
