@@ -24,8 +24,8 @@ int main(int argc,char * argv[])
 	buff = atoi(argv[1]);
 
 //	dev = open( DEVICE_FILENAME, O_RDWR|O_NDELAY );
-    dev = open( DEVICE_FILENAME, O_RDWR);
-	if(dev<0)
+	dev = open( DEVICE_FILENAME, O_RDWR);
+if(dev<0)
 	{
 		perror("open()");
 		return 2;

@@ -14,6 +14,7 @@
 #include <linux/irq.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
+#include <linux/poll.h>
 
 #define   LED_DEV_NAME            "ledkeydev"
 #define   LED_DEV_MAJOR            240      
@@ -167,7 +168,19 @@ static long ledkeydev_ioctl (struct file *filp, unsigned int cmd, unsigned long 
 	return 0x53;
 }
 
-int ledkeydev_release (struct inode *inode, struct file *filp)
+static unsigned int ledkeydev_poll (struct file *filp, struct poll_table_struct *wait){
+	unsigned int mask = 0;
+	printk("_key : %ld \n",(wait ->_key & POLLIN));
+	if (wait ->_key & POLLIN){
+		poll_wait(filp, &WaitQueue_Read, wait);
+	}
+	if (sw_no > 0){
+		mask = POLLIN;
+	}
+	return mask;
+}
+
+static int ledkeydev_release (struct inode *inode, struct file *filp)
 {
 	printk( "ledkeydev release \n" );
 	return 0;
@@ -180,6 +193,7 @@ struct file_operations ledkeydev_fops =
 	.read     = ledkeydev_read,     
 	.write    = ledkeydev_write,    
 	.unlocked_ioctl = ledkeydev_ioctl,
+	.poll	  = ledkeydev_poll,
 	.release  = ledkeydev_release,  
 };
 
