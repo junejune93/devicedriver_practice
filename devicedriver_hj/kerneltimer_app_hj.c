@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		printf("Usage : %s [led_data(0x0~0xf)]\n",argv[0]);
 		return 2;
 	}
-	printf("Author:CDG\n");
+	printf("Author:HJ\n");
     timer_val = atoi(argv[2]);
 	info.timer_val = timer_val;
 
