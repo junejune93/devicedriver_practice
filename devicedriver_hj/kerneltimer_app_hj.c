@@ -38,8 +38,7 @@ int main(int argc, char *argv[])
 	printf("Author:HJ\n");
     timer_val = atoi(argv[2]);
 	info.timer_val = timer_val;
-
-//	dev = open(DEVICE_FILENAME, O_RDWR | O_NONBLOCK);
+	
 	dev = open(DEVICE_FILENAME, O_RDWR );
 	if(dev < 0)
 	{
@@ -60,11 +59,9 @@ int main(int argc, char *argv[])
 
 	while(loopFlag)
 	{
-
 		ret = poll(Events, 2, 1000);
 		if(ret==0)
 		{
-//  		printf("poll time out : %d\n",cnt++);
 			continue;
 		}
 		if(Events[0].revents & POLLIN)  //dev : keyled
@@ -94,7 +91,6 @@ int main(int argc, char *argv[])
             		ioctl(dev,TIMER_STOP);
 					loopFlag = 0;
 				break;
-
 			}
 		}
 		else if(Events[1].revents & POLLIN) //keyboard
@@ -109,15 +105,12 @@ int main(int argc, char *argv[])
 			{
 				timer_val = atoi(inputString);
 				info.timer_val = timer_val;
-				ioctl(dev,TIMER_VALUE,&info);
-            //	ioctl(dev,TIMER_START);
-				
+				ioctl(dev,TIMER_VALUE,&info);		
 			}
 			else if(key_no == 3) //led value
 			{
 				led_no = (char)strtoul(inputString,NULL,16);
     			write(dev,&led_no,sizeof(led_no));
-           // 	ioctl(dev,TIMER_START);
 			}
 			key_no = 0;
 		}
